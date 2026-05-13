@@ -57,14 +57,14 @@ async function fetchAllPages(accessToken, proxyConfig = null) {
     }
   }
 
-  const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?access_token=${accessToken}&fields=id,name,access_token,category&limit=100`;
+  const accountsUrl = `https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}&fields=id,name,access_token,category&limit=100`;
   await fetchWithPagination(accountsUrl, (pagesData) => {
     pagesData.forEach(p => {
       pagesMap.set(p.id, { id: p.id, name: p.name, access_token: p.access_token, category: p.category || 'Page' });
     });
   });
 
-  const bizUrl = `https://graph.facebook.com/v19.0/me/businesses?access_token=${accessToken}&limit=100`;
+  const bizUrl = `https://graph.facebook.com/v21.0/me/businesses?access_token=${accessToken}&limit=100`;
   let businesses = [];
   try {
     let bUrl = bizUrl;
@@ -78,10 +78,10 @@ async function fetchAllPages(accessToken, proxyConfig = null) {
   } catch (bizErr) {}
 
   for (const biz of businesses) {
-    const ownedPagesUrl = `https://graph.facebook.com/v19.0/${biz.id}/owned_pages?access_token=${accessToken}&limit=100`;
+    const ownedPagesUrl = `https://graph.facebook.com/v21.0/${biz.id}/owned_pages?access_token=${accessToken}&limit=100`;
     await fetchWithPagination(ownedPagesUrl, (pagesData) => pagesData.forEach(p => pagesMap.set(p.id, { id: p.id, name: p.name, access_token: p.access_token, category: p.category || 'Business Owned Page' })));
 
-    const clientPagesUrl = `https://graph.facebook.com/v19.0/${biz.id}/client_pages?access_token=${accessToken}&limit=100`;
+    const clientPagesUrl = `https://graph.facebook.com/v21.0/${biz.id}/client_pages?access_token=${accessToken}&limit=100`;
     await fetchWithPagination(clientPagesUrl, (pagesData) => pagesData.forEach(p => pagesMap.set(p.id, { id: p.id, name: p.name, access_token: p.access_token, category: p.category || 'Business Client Page' })));
   }
 
@@ -99,11 +99,11 @@ async function postToPage(pageId, pageAccessToken, message, mediaPath = null, pr
       
       let url = '';
       if (mimeType.startsWith('image/')) {
-        url = `https://graph.facebook.com/v19.0/${pageId}/photos`;
+        url = `https://graph.facebook.com/v21.0/${pageId}/photos`;
         if (message) form.append('message', message);
         form.append('source', fs.createReadStream(mediaPath));
       } else if (mimeType.startsWith('video/')) {
-        url = `https://graph.facebook.com/v19.0/${pageId}/videos`;
+        url = `https://graph.facebook.com/v21.0/${pageId}/videos`;
         if (message) form.append('description', message);
         form.append('source', fs.createReadStream(mediaPath));
       } else {
@@ -118,7 +118,7 @@ async function postToPage(pageId, pageAccessToken, message, mediaPath = null, pr
       });
       return response.data;
     } else {
-      const url = `https://graph.facebook.com/v19.0/${pageId}/feed`;
+      const url = `https://graph.facebook.com/v21.0/${pageId}/feed`;
       const response = await axios.post(url, {
         message: message,
         access_token: pageAccessToken

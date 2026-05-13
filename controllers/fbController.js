@@ -13,13 +13,13 @@ exports.authenticate = async (req, res) => {
     let name = 'Unknown Profile';
     let fb_id = '';
     try {
-      const userRes = await axios.get(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${access_token}`);
+      const userRes = await axios.get(`https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${access_token}`);
       if (userRes.data && userRes.data.name) {
         name = userRes.data.name;
         fb_id = userRes.data.id;
       }
     } catch (e) {
-      console.log('Could not fetch profile name, using fallback.', e.message);
+      console.error('[Auth] Could not fetch profile:', e.response?.data?.error?.message || e.message);
     }
 
     const existing = await getQuery(`SELECT id FROM users WHERE access_token = ?`, [access_token]);
@@ -42,7 +42,7 @@ exports.syncPagesBackground = async (token) => {
   await runQuery(`DELETE FROM pages WHERE user_token = ?`, [token]);
   
   // Fetch pages directly with explicit fields to guarantee access_token is returned
-  let url = `https://graph.facebook.com/v19.0/me/accounts?access_token=${token}&fields=id,name,access_token,category&limit=100`;
+  let url = `https://graph.facebook.com/v21.0/me/accounts?access_token=${token}&fields=id,name,access_token,category&limit=100`;
   const pages = [];
   
   while (url) {
@@ -59,7 +59,7 @@ exports.syncPagesBackground = async (token) => {
       }
       url = res.data.paging?.next || null;
     } catch (err) {
-      console.error('[Sync] Error fetching pages:', err.response?.data?.error?.message || err.message);
+      console.error('[Sync] Error fetching pages:', JSON.stringify(err.response?.data || err.message));
       break;
     }
   }

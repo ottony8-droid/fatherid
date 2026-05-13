@@ -85,6 +85,7 @@ function initializeDatabase() {
       db.run("ALTER TABLE autopilot_tasks ADD COLUMN start_time TEXT DEFAULT '00:00'", (err) => {});
       db.run("ALTER TABLE autopilot_tasks ADD COLUMN end_time TEXT DEFAULT '23:59'", (err) => {});
       db.run("ALTER TABLE autopilot_tasks ADD COLUMN custom_times TEXT DEFAULT '[]'", (err) => {});
+      db.run("ALTER TABLE autopilot_tasks ADD COLUMN gap_max INTEGER DEFAULT 15", (err) => {});
     });
 
     // Running state for the autopilot engine

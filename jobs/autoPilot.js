@@ -309,10 +309,12 @@ async function executeRound(task, phaseLabel, startIdx = 0) {
     engine.videosRemaining = scanForVideos(task.folder_path).length;
     await save();
 
-    // Gap between pages - minimum 10 minutes enforced
+    // Gap between pages - random between gap_minutes (min) and gap_max
     if (i < pages.length - 1 && !engine.stopRequested) {
-      const gapMins = Math.max(task.gap_minutes || 10, 10);
-      console.log(`[Engine] Gap ${gapMins}m before next page`);
+      const gapMin = Math.max(task.gap_minutes || 7, 7);
+      const gapMax = Math.max(task.gap_max || 15, gapMin);
+      const gapMins = gapMin + Math.floor(Math.random() * (gapMax - gapMin + 1));
+      console.log(`[Engine] Random gap ${gapMins}m (range ${gapMin}-${gapMax}) before next page`);
       engine.nextPostAt = Date.now() + (gapMins * 60000);
       engine.nextPageName = pages[i + 1].name;
       engine.status = 'resting';
@@ -444,7 +446,8 @@ function getState() {
     currentPageName: engine.currentPageName, currentVideoName: engine.currentVideoName,
     videosRemaining: engine.videosRemaining,
     customTimes: engine.task?.custom_times || '[]',
-    gapMinutes: engine.task?.gap_minutes || 10,
+    gapMinutes: engine.task?.gap_minutes || 7,
+    gapMax: engine.task?.gap_max || 15,
     localTime: getLocalTimeHHMM(),
     serverInfo: serverInfo,
     firstPostAt: engine.firstPostAt ? new Date(engine.firstPostAt).toLocaleTimeString() : null,

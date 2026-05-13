@@ -93,7 +93,7 @@ export default function AutoPilot() {
 
   // New task form focused on Custom Phases
   const [form, setForm] = useState({
-    name: '', folder_path: '', custom_times: ['10:00', '15:00', '20:00'], gap_minutes: 10
+    name: '', folder_path: '', custom_times: ['10:00', '20:00'], gap_minutes: 7, gap_max: 15
   });
 
   const fetchAll = async () => {
@@ -164,7 +164,7 @@ export default function AutoPilot() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setShowCreate(false);
-      setForm({ name: '', folder_path: '', custom_times: ['10:00', '15:00', '20:00'], gap_minutes: 5 });
+      setForm({ name: '', folder_path: '', custom_times: ['10:00', '20:00'], gap_minutes: 7, gap_max: 15 });
       fetchAll();
     } catch (e) { setErrorMsg(e.message); }
   };
@@ -467,23 +467,35 @@ export default function AutoPilot() {
               </div>
 
               <div className="ap-field">
-                <label>Gap Time</label>
-                <div className="digital-input-wrap">
-                  <input type="number" className="digital-number" value={form.gap_minutes} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 10, 10); setForm(f => ({ ...f, gap_minutes: v })); }} min={10} max={120} />
-                  <span className="digital-unit">MIN</span>
+                <label>Gap Time (Random Range)</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div className="digital-input-wrap" style={{ flex: 1 }}>
+                    <input type="number" className="digital-number" value={form.gap_minutes} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 7, 7); setForm(f => ({ ...f, gap_minutes: v })); }} min={7} max={120} />
+                    <span className="digital-unit">MIN</span>
+                  </div>
+                  <span style={{ color: 'var(--text-dim)', fontWeight: 600 }}>~</span>
+                  <div className="digital-input-wrap" style={{ flex: 1 }}>
+                    <input type="number" className="digital-number" value={form.gap_max} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 7, parseInt(form.gap_minutes) || 7); setForm(f => ({ ...f, gap_max: v })); }} min={form.gap_minutes || 7} max={120} />
+                    <span className="digital-unit">MAX</span>
+                  </div>
                 </div>
-                <span className="ap-field-tip" style={{color: 'var(--warning)'}}>Minimum 10 min gap between pages</span>
+                <span className="ap-field-tip" style={{color: 'var(--warning)'}}>Random {form.gap_minutes || 7}-{form.gap_max || 15} min gap per page (min 7 locked)</span>
               </div>
 
               <div className="ap-field span-3">
                 <h3 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>Daily Custom Phases</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' , gap: '20px' }}>
                   {form.custom_times.map((ct, idx) => {
-                    const dur = (status.connectedPages || 0) * (parseInt(form.gap_minutes) || 0);
-                    const minSafeText = idx === 0 ? '' : `Min safe limit: ${addMinsToHM(form.custom_times[idx-1], dur)}`;
+                    const dur = (status.connectedPages || 0) * (parseInt(form.gap_max) || parseInt(form.gap_minutes) || 0);
+                    const minSafeText = idx === 0 ? '' : `SAFE LIMIT: ${addMinsToHM(form.custom_times[idx-1], dur)}`;
                     return (
                         <div className="ap-field" key={idx} style={{marginBottom: 0}}>
-                            <label>Phase {idx + 1} Time {idx > 0 && <span style={{fontSize: '0.7rem', color:'var(--success)', marginLeft: 8}}>{minSafeText}</span>}</label>
+                            <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                              <span>Phase {idx + 1} Time {idx > 0 && <span style={{fontSize: '0.7rem', color:'var(--success)', marginLeft: 8}}>{minSafeText}</span>}</span>
+                              {form.custom_times.length > 1 && (
+                                <button onClick={() => { const newT = [...form.custom_times]; newT.splice(idx, 1); setForm(f => ({...f, custom_times: newT})); }} type="button" className="ap-icon-btn danger" style={{height: 24, width: 24, minWidth: 24, padding: 0, fontSize: '0.7rem'}}><Trash2 size={12}/></button>
+                              )}
+                            </label>
                             <div className="digital-input-wrap">
                                 <input type="time" className="digital-number" style={{letterSpacing: '1px', fontSize: '1rem'}} value={ct} onChange={e => {
                                     const newT = [...form.custom_times];
@@ -496,9 +508,6 @@ export default function AutoPilot() {
                   })}
                   <div className="ap-field" style={{display: 'flex', gap: 10, alignItems: 'center', marginTop: '22px'}}>
                     <button onClick={() => setForm(f => ({...f, custom_times: [...f.custom_times, '00:00']}))} type="button" className="ap-submit-btn" style={{padding: '0 15px', height: 42, flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)'}}>+ Add Phase</button>
-                    {form.custom_times.length > 1 && (
-                        <button onClick={() => { const newT = [...form.custom_times]; newT.pop(); setForm(f => ({...f, custom_times: newT})); }} type="button" className="ap-icon-btn danger" style={{height: 42, width: 42}}><Trash2 size={16}/></button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -743,9 +752,17 @@ function EditTaskForm({ task, onSave, onCancel, connectedPages }) {
             </button>
           </div>
         </div>
-        <div className="ap-field"><label>Gap (min) <span style={{fontSize: '0.65rem', color: 'var(--warning)'}}>min 10</span></label>
-          <div className="digital-input-wrap">
-            <input type="number" className="digital-number" value={t.gap_minutes} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 10, 10); setT(x => ({ ...x, gap_minutes: v })); }} min={10} max={120} />
+        <div className="ap-field"><label>Gap Range <span style={{fontSize: '0.65rem', color: 'var(--warning)'}}>min 7</span></label>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div className="digital-input-wrap" style={{ flex: 1 }}>
+              <input type="number" className="digital-number" value={t.gap_minutes} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 7, 7); setT(x => ({ ...x, gap_minutes: v })); }} min={7} max={120} />
+              <span className="digital-unit">MIN</span>
+            </div>
+            <span style={{ color: 'var(--text-dim)', fontWeight: 600 }}>~</span>
+            <div className="digital-input-wrap" style={{ flex: 1 }}>
+              <input type="number" className="digital-number" value={t.gap_max || 15} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 7, parseInt(t.gap_minutes) || 7); setT(x => ({ ...x, gap_max: v })); }} min={t.gap_minutes || 7} max={120} />
+              <span className="digital-unit">MAX</span>
+            </div>
           </div>
         </div>
         
@@ -753,11 +770,16 @@ function EditTaskForm({ task, onSave, onCancel, connectedPages }) {
           <h3 style={{ fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>Daily Custom Phases</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' , gap: '20px' }}>
             {t.custom_times.map((ct, idx) => {
-              const dur = (connectedPages || 0) * (parseInt(t.gap_minutes) || 0);
-              const minSafeText = idx === 0 ? '' : `Min safe limit: ${addMinsToHM(t.custom_times[idx-1], dur)}`;
+              const dur = (connectedPages || 0) * (parseInt(t.gap_max) || parseInt(t.gap_minutes) || 0);
+              const minSafeText = idx === 0 ? '' : `SAFE LIMIT: ${addMinsToHM(t.custom_times[idx-1], dur)}`;
               return (
                   <div className="ap-field" key={idx} style={{marginBottom: 0}}>
-                      <label>Phase {idx + 1} Time {idx > 0 && <span style={{fontSize: '0.7rem', color:'var(--success)', marginLeft: 8}}>{minSafeText}</span>}</label>
+                      <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                        <span>Phase {idx + 1} Time {idx > 0 && <span style={{fontSize: '0.7rem', color:'var(--success)', marginLeft: 8}}>{minSafeText}</span>}</span>
+                        {t.custom_times.length > 1 && (
+                          <button type="button" onClick={() => { const newT = [...t.custom_times]; newT.splice(idx, 1); setT(f => ({...f, custom_times: newT})); }} className="ap-icon-btn danger" style={{height: 24, width: 24, minWidth: 24, padding: 0}}><Trash2 size={12}/></button>
+                        )}
+                      </label>
                       <div className="digital-input-wrap">
                           <input type="time" className="digital-number" style={{letterSpacing: '1px', fontSize: '1rem'}} value={ct} onChange={e => {
                               const newT = [...t.custom_times];
@@ -770,9 +792,6 @@ function EditTaskForm({ task, onSave, onCancel, connectedPages }) {
             })}
             <div className="ap-field" style={{display: 'flex', gap: 10, alignItems: 'center', marginTop: '22px'}}>
               <button type="button" onClick={() => setT(f => ({...f, custom_times: [...f.custom_times, '00:00']}))} className="ap-submit-btn" style={{padding: '0 15px', height: 42, flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)'}}>+ Add</button>
-              {t.custom_times.length > 1 && (
-                  <button type="button" onClick={() => { const newT = [...t.custom_times]; newT.pop(); setT(f => ({...f, custom_times: newT})); }} className="ap-icon-btn danger" style={{height: 42, width: 42}}><Trash2 size={16}/></button>
-              )}
             </div>
           </div>
         </div>

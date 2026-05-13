@@ -19,6 +19,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 
+let dbReadyResolve;
+const dbReady = new Promise(resolve => { dbReadyResolve = resolve; });
+
 function initializeDatabase() {
   db.serialize(() => {
     db.run(`
@@ -129,6 +132,42 @@ function initializeDatabase() {
       )
     `);
 
+    // Proxy configuration table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS proxies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'http',
+        host TEXT NOT NULL,
+        port INTEGER NOT NULL,
+        username TEXT,
+        password TEXT,
+        enabled INTEGER DEFAULT 1,
+        created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+      )
+    `);
+
+    // Page-to-proxy mapping table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS page_proxy (
+        page_id TEXT NOT NULL,
+        proxy_id INTEGER NOT NULL,
+        PRIMARY KEY (page_id, proxy_id)
+      )
+    `);
+
+    // Posted video tracking for duplicate prevention
+    db.run(`
+      CREATE TABLE IF NOT EXISTS posted_videos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        video_name TEXT NOT NULL,
+        video_size INTEGER,
+        page_id TEXT NOT NULL,
+        posted_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+        UNIQUE(video_name, page_id)
+      )
+    `);
+
     // Daily analytics snapshots per page
     db.run(`
       CREATE TABLE IF NOT EXISTS page_analytics (
@@ -144,7 +183,15 @@ function initializeDatabase() {
       )
     `);
 
-    console.log('Database tables verified for AutoPilot Reel Blaster.');
+    // Add proxy_id column to pages if not exists
+    db.run("ALTER TABLE pages ADD COLUMN proxy_id INTEGER", (err) => {});
+
+    console.log('Database tables verified for AutoPilot Reel Blaster v4.0.');
+
+    // Signal that all tables are ready
+    db.run("SELECT 1", () => {
+      dbReadyResolve();
+    });
   });
 }
 
@@ -177,6 +224,7 @@ function allQuery(sql, params = []) {
 
 module.exports = {
   db,
+  dbReady,
   runQuery,
   getQuery,
   allQuery

@@ -13,13 +13,13 @@ exports.authenticate = async (req, res) => {
     let name = 'Unknown Profile';
     let fb_id = '';
     try {
-      const userRes = await axios.get(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${access_token}`);
+      const userRes = await axios.get(`https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${access_token}`);
       if (userRes.data && userRes.data.name) {
         name = userRes.data.name;
         fb_id = userRes.data.id;
       }
     } catch (e) {
-      console.log('Could not fetch profile name, using fallback.', e.message);
+      console.error('[Auth] Could not fetch profile:', e.response?.data?.error?.message || e.message);
     }
 
     const existing = await getQuery(`SELECT id FROM users WHERE access_token = ?`, [access_token]);
@@ -42,7 +42,7 @@ exports.syncPagesBackground = async (token) => {
   await runQuery(`DELETE FROM pages WHERE user_token = ?`, [token]);
   
   // Fetch pages directly with explicit fields to guarantee access_token is returned
-  let url = `https://graph.facebook.com/v19.0/me/accounts?access_token=${token}&fields=id,name,access_token,category&limit=100`;
+  let url = `https://graph.facebook.com/v21.0/me/accounts?access_token=${token}&fields=id,name,access_token,category&limit=100`;
   const pages = [];
   
   while (url) {
@@ -59,7 +59,7 @@ exports.syncPagesBackground = async (token) => {
       }
       url = res.data.paging?.next || null;
     } catch (err) {
-      console.error('[Sync] Error fetching pages:', err.response?.data?.error?.message || err.message);
+      console.error('[Sync] Error fetching pages:', JSON.stringify(err.response?.data || err.message));
       break;
     }
   }
@@ -325,15 +325,7 @@ exports.getQueueState = async (req, res) => {
 };
 
 exports.browseFolder = (req, res) => {
-  const { exec } = require('child_process');
-  const script = `$app = New-Object -com Shell.Application; $folder = $app.BrowseForFolder(0, 'Select Folder For AutoReel', 0, 0); if($folder) { $folder.Self.Path }`;
-  exec(`powershell.exe -Command "${script}"`, (err, stdout) => {
-     if(stdout && stdout.trim().length > 0) {
-       res.json({ path: stdout.trim() });
-     } else {
-       res.json({ path: null });
-     }
-  });
+  res.status(400).json({ error: 'Browse is not available on Linux VPS. Please type the path manually and click Scan.' });
 };
 
 exports.updateQueueItemTime = async (req, res) => {
@@ -410,5 +402,123 @@ exports.deleteToken = async (req, res) => {
     res.json({ success: true });
   } catch(err) {
     res.status(500).json({ error: 'Failed' });
+  }
+};
+
+// ═══════════════════════════════════════
+// PROXY MANAGEMENT
+// ═══════════════════════════════════════
+
+exports.getProxies = async (req, res) => {
+  try {
+    const proxies = await allQuery(`SELECT * FROM proxies ORDER BY created_at DESC`);
+    res.json({ proxies });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch proxies.' });
+  }
+};
+
+exports.addProxy = async (req, res) => {
+  try {
+    const { name, type, host, port, username, password } = req.body;
+    if (!name || !host || !port) {
+      return res.status(400).json({ error: 'Name, host, and port are required.' });
+    }
+    const validTypes = ['http', 'https', 'socks4', 'socks5'];
+    const proxyType = validTypes.includes(type) ? type : 'http';
+
+    const result = await runQuery(
+      `INSERT INTO proxies (name, type, host, port, username, password) VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, proxyType, host, parseInt(port), username || null, password || null]
+    );
+    res.json({ success: true, id: result.id, message: `Proxy "${name}" added.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add proxy.', details: err.message });
+  }
+};
+
+exports.updateProxy = async (req, res) => {
+  try {
+    const { name, type, host, port, username, password, enabled } = req.body;
+    const { id } = req.params;
+    await runQuery(
+      `UPDATE proxies SET name=?, type=?, host=?, port=?, username=?, password=?, enabled=? WHERE id=?`,
+      [name, type, host, parseInt(port), username || null, password || null, enabled ? 1 : 0, id]
+    );
+    res.json({ success: true, message: 'Proxy updated.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update proxy.' });
+  }
+};
+
+exports.deleteProxy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await runQuery(`DELETE FROM page_proxy WHERE proxy_id = ?`, [id]);
+    await runQuery(`DELETE FROM proxies WHERE id = ?`, [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete proxy.' });
+  }
+};
+
+exports.testProxy = async (req, res) => {
+  try {
+    const { type, host, port, username, password } = req.body;
+    const { getAxiosConfig } = require('../services/facebookService');
+    const axiosCfg = getAxiosConfig({ type, host, port: parseInt(port), username, password });
+    
+    const axios = require('axios');
+    const response = await axios.get('http://ip-api.com/json/', {
+      ...axiosCfg,
+      timeout: 10000
+    });
+    
+    if (response.data && response.data.query) {
+      res.json({ 
+        success: true, 
+        ip: response.data.query, 
+        location: `${response.data.city}, ${response.data.country}`,
+        country: response.data.country
+      });
+    } else {
+      res.json({ success: false, error: 'Could not determine proxy IP.' });
+    }
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+};
+
+exports.assignProxyToPages = async (req, res) => {
+  try {
+    const { proxy_id, page_ids } = req.body;
+    if (!proxy_id || !Array.isArray(page_ids)) {
+      return res.status(400).json({ error: 'proxy_id and page_ids array are required.' });
+    }
+
+    // Remove old mappings for this proxy
+    await runQuery(`DELETE FROM page_proxy WHERE proxy_id = ?`, [proxy_id]);
+
+    // Insert new mappings
+    for (const pageId of page_ids) {
+      await runQuery(`INSERT OR REPLACE INTO page_proxy (page_id, proxy_id) VALUES (?, ?)`, [pageId, proxy_id]);
+    }
+
+    res.json({ success: true, message: `Proxy assigned to ${page_ids.length} page(s).` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to assign proxy.', details: err.message });
+  }
+};
+
+exports.getPageProxyMappings = async (req, res) => {
+  try {
+    const mappings = await allQuery(`
+      SELECT pp.page_id, pp.proxy_id, p.name as proxy_name, p.type, p.host, p.port
+      FROM page_proxy pp
+      JOIN proxies p ON pp.proxy_id = p.id
+    `);
+    res.json({ mappings });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch proxy mappings.' });
   }
 };

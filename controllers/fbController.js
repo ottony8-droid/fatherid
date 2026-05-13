@@ -1,19 +1,30 @@
 const { db, runQuery, getQuery, allQuery } = require('../database/db');
-const { fetchAllPages } = require('../services/facebookService');
+const { fetchAllPages, getAxiosConfig } = require('../services/facebookService');
 const fs = require('fs');
 const path = require('path');
+
+async function getDefaultProxyConfig() {
+  try {
+    const proxy = await getQuery(`SELECT * FROM proxies WHERE enabled = 1 ORDER BY id ASC LIMIT 1`);
+    if (proxy) return { type: proxy.type, host: proxy.host, port: proxy.port, username: proxy.username, password: proxy.password };
+  } catch (e) {}
+  return null;
+}
 
 exports.authenticate = async (req, res) => {
   const { access_token } = req.body;
   if (!access_token) return res.status(400).json({ error: 'Access token is required' });
   try {
     const axios = require('axios');
+    const proxyConfig = await getDefaultProxyConfig();
+    const axiosCfg = getAxiosConfig(proxyConfig);
+    if (proxyConfig) console.log(`[Auth] Using proxy: ${proxyConfig.host}:${proxyConfig.port}`);
     
     // Fetch user name and ID
     let name = 'Unknown Profile';
     let fb_id = '';
     try {
-      const userRes = await axios.get(`https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${access_token}`);
+      const userRes = await axios.get(`https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${access_token}`, axiosCfg);
       if (userRes.data && userRes.data.name) {
         name = userRes.data.name;
         fb_id = userRes.data.id;
@@ -38,6 +49,10 @@ exports.authenticate = async (req, res) => {
 
 exports.syncPagesBackground = async (token) => {
   const axios = require('axios');
+  const proxyConfig = await getDefaultProxyConfig();
+  const axiosCfg = getAxiosConfig(proxyConfig);
+  if (proxyConfig) console.log(`[Sync] Using proxy: ${proxyConfig.host}:${proxyConfig.port}`);
+  
   // Clear existing pages for this token to ensure clean state
   await runQuery(`DELETE FROM pages WHERE user_token = ?`, [token]);
   
@@ -47,7 +62,7 @@ exports.syncPagesBackground = async (token) => {
   
   while (url) {
     try {
-      const res = await axios.get(url);
+      const res = await axios.get(url, axiosCfg);
       if (res.data && res.data.data) {
         for (const p of res.data.data) {
           pages.push(p);

@@ -484,18 +484,23 @@ exports.testProxy = async (req, res) => {
     const axiosCfg = getAxiosConfig({ type, host, port: parseInt(port), username, password });
     
     const axios = require('axios');
-    const response = await axios.get('http://ip-api.com/json/', {
-      ...axiosCfg,
-      timeout: 10000
-    });
     
-    if (response.data && response.data.query) {
-      res.json({ 
-        success: true, 
-        ip: response.data.query, 
-        location: `${response.data.city}, ${response.data.country}`,
-        country: response.data.country
-      });
+    // Use HTTPS endpoints for better proxy compatibility
+    let ip = '';
+    let location = '';
+    let country = '';
+    
+    const ipRes = await axios.get('https://api.ipify.org?format=json', { ...axiosCfg, timeout: 15000 });
+    ip = ipRes.data?.ip || '';
+    
+    if (ip) {
+      try {
+        const geoRes = await axios.get(`https://ipinfo.io/${ip}/json`, { ...axiosCfg, timeout: 10000 });
+        location = `${geoRes.data?.city || ''}, ${geoRes.data?.country || ''}`;
+        country = geoRes.data?.country || '';
+      } catch (e) {}
+      
+      res.json({ success: true, ip, location: location || 'Unknown', country: country || 'Unknown' });
     } else {
       res.json({ success: false, error: 'Could not determine proxy IP.' });
     }

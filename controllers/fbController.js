@@ -5,7 +5,7 @@ const path = require('path');
 
 async function getDefaultProxyConfig() {
   try {
-    const proxy = await getQuery(`SELECT * FROM proxies WHERE status = 'active' ORDER BY id ASC LIMIT 1`);
+    const proxy = await getQuery(`SELECT * FROM proxies WHERE enabled = 1 ORDER BY id ASC LIMIT 1`);
     if (proxy) return { type: proxy.type, host: proxy.host, port: proxy.port, username: proxy.username, password: proxy.password };
   } catch (e) {}
   return null;

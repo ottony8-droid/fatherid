@@ -32,14 +32,23 @@ const format12h = (hm) => {
   return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
 };
 
-const getUsaTimeFromHM = (hm, serverTz) => {
+const US_TIMEZONES = [
+  { value: 'America/New_York', label: 'New York (ET)', short: 'ET' },
+  { value: 'America/Chicago', label: 'Chicago (CT)', short: 'CT' },
+  { value: 'America/Denver', label: 'Denver (MT)', short: 'MT' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles (PT)', short: 'PT' },
+];
+
+const getUsaTimeFromHM = (hm, serverTz, targetTz) => {
   if (!hm || !serverTz) return '';
+  const tz = targetTz || 'America/New_York';
+  const tzInfo = US_TIMEZONES.find(t => t.value === tz);
   try {
     const [h, m] = hm.split(':').map(Number);
     const now = new Date();
     const sTzTime = new Date(now.toLocaleString('en-US', { timeZone: serverTz }));
-    const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const diffMs = nyTime.getTime() - sTzTime.getTime();
+    const usTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+    const diffMs = usTime.getTime() - sTzTime.getTime();
     
     const targetDate = new Date();
     targetDate.setHours(h, m, 0, 0);
@@ -50,8 +59,14 @@ const getUsaTimeFromHM = (hm, serverTz) => {
     const ampm = usaH >= 12 ? 'PM' : 'AM';
     let h12 = usaH % 12;
     if (h12 === 0) h12 = 12;
-    return `${String(h12).padStart(2, '0')}:${String(usaM).padStart(2, '0')} ${ampm} EST`;
+    return `${String(h12).padStart(2, '0')}:${String(usaM).padStart(2, '0')} ${ampm} ${tzInfo?.short || 'ET'}`;
   } catch(e) { return '' }
+};
+
+const getLiveClock = (tz) => {
+  try {
+    return new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  } catch(e) { return '--:--:--'; }
 };
 
 export default function AutoPilot() {
@@ -65,6 +80,27 @@ export default function AutoPilot() {
   const [pageStats, setPageStats] = useState({});
   const [pages, setPages] = useState([]);
   const [gapCountdown, setGapCountdown] = useState(null);
+  const [selectedUsTz, setSelectedUsTz] = useState(() => localStorage.getItem('autopilot_us_tz') || 'America/New_York');
+  const [liveClock, setLiveClock] = useState({ server: '', us: '' });
+
+  // Live clock update
+  useEffect(() => {
+    const serverTz = status.serverInfo?.timezone;
+    const tick = () => {
+      setLiveClock({
+        server: serverTz ? getLiveClock(serverTz) : getLiveClock(Intl.DateTimeFormat().resolvedOptions().timeZone),
+        us: getLiveClock(selectedUsTz)
+      });
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [status.serverInfo?.timezone, selectedUsTz]);
+
+  const handleTzChange = (tz) => {
+    setSelectedUsTz(tz);
+    localStorage.setItem('autopilot_us_tz', tz);
+  };
 
   // Live countdown for resting state between page posts
   useEffect(() => {
@@ -262,13 +298,24 @@ export default function AutoPilot() {
         <div>
           <h1 className="ap-title"><Zap size={24} style={{ color: 'var(--blue-accent)' }} /> <span>VPS</span> AutoPilot 01</h1>
           <p className="ap-subtitle">Fully autonomous daily phase scheduling. Set your custom times and relax.</p>
-          {status.serverInfo && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', fontSize: '0.85rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '6px', width: 'fit-content' }}>
-              <span style={{ fontSize: '1.2rem' }}>{status.serverInfo.flag}</span>
-              <strong style={{ color: 'var(--text-main)' }}>{status.serverInfo.ip}</strong>
-              <span>({status.serverInfo.location})</span>
+          {/* Timezone & Clock Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
+            {status.serverInfo && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '8px' }}>
+                <span style={{ fontSize: '1.1rem' }}>{status.serverInfo.flag}</span>
+                <strong style={{ color: 'var(--text-main)' }}>{status.serverInfo.ip}</strong>
+                <span style={{ opacity: 0.7 }}>({status.serverInfo.location})</span>
+                <span style={{ color: 'var(--blue-accent)', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', marginLeft: 4 }}>{liveClock.server}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', padding: '6px 12px', borderRadius: '8px' }}>
+              <span style={{ fontSize: '1.1rem' }}>🇺🇸</span>
+              <select value={selectedUsTz} onChange={e => handleTzChange(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', outline: 'none' }}>
+                {US_TIMEZONES.map(tz => <option key={tz.value} value={tz.value} style={{ background: 'var(--bg-card)' }}>{tz.label}</option>)}
+              </select>
+              <span style={{ color: '#6366f1', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem' }}>{liveClock.us}</span>
             </div>
-          )}
+          </div>
         </div>
         {!isRunning && (
           <button className="ap-btn-primary" onClick={() => setShowCreate(!showCreate)}>
@@ -488,6 +535,7 @@ export default function AutoPilot() {
                   {form.custom_times.map((ct, idx) => {
                     const dur = (status.connectedPages || 0) * (parseInt(form.gap_max) || parseInt(form.gap_minutes) || 0);
                     const minSafeText = idx === 0 ? '' : `SAFE LIMIT: ${addMinsToHM(form.custom_times[idx-1], dur)}`;
+                    const usTimeText = ct ? getUsaTimeFromHM(ct, status.serverInfo?.timezone, selectedUsTz) : '';
                     return (
                         <div className="ap-field" key={idx} style={{marginBottom: 0}}>
                             <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
@@ -503,6 +551,7 @@ export default function AutoPilot() {
                                     setForm(f => ({...f, custom_times: newT}));
                                 }} />
                             </div>
+                            {usTimeText && <span style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '4px', display: 'block' }}>🇺🇸 {usTimeText}</span>}
                         </div>
                     )
                   })}
@@ -534,7 +583,7 @@ export default function AutoPilot() {
           {tasks.map(task => (
             <div key={task.id} className={`ap-task-item ${isRunning && status.taskId === task.id ? 'active' : ''}`}>
               {editingTask === task.id ? (
-                <EditTaskForm task={task} onSave={handleUpdateTask} onCancel={() => setEditingTask(null)} connectedPages={status.connectedPages} />
+                <EditTaskForm task={task} onSave={handleUpdateTask} onCancel={() => setEditingTask(null)} connectedPages={status.connectedPages} serverTz={status.serverInfo?.timezone} selectedUsTz={selectedUsTz} />
               ) : (
                 <>
                   <div className="ap-task-top">
@@ -584,7 +633,7 @@ export default function AutoPilot() {
                     </div>
                   </div>
                   <div className="ap-task-tags">
-                    <span className="ap-tag">⏱️ {task.gap_minutes}min gap</span>
+                    <span className="ap-tag">⏱️ {task.gap_minutes}-{task.gap_max || 15}min gap</span>
                     <span className={`ap-tag ${task.folder_missing ? 'err' : 'ok'}`}>
                       📁 {task.folder_missing ? 'MISSING' : `${task.video_count} videos left`}
                     </span>
@@ -712,7 +761,7 @@ export default function AutoPilot() {
 }
 
 // ── Inline Edit Form Component ──
-function EditTaskForm({ task, onSave, onCancel, connectedPages }) {
+function EditTaskForm({ task, onSave, onCancel, connectedPages, serverTz, selectedUsTz }) {
   const [t, setT] = useState({ 
      ...task, 
      custom_times: Array.isArray(task.custom_times) ? task.custom_times : JSON.parse(task.custom_times || '["10:00"]')
@@ -772,6 +821,7 @@ function EditTaskForm({ task, onSave, onCancel, connectedPages }) {
             {t.custom_times.map((ct, idx) => {
               const dur = (connectedPages || 0) * (parseInt(t.gap_max) || parseInt(t.gap_minutes) || 0);
               const minSafeText = idx === 0 ? '' : `SAFE LIMIT: ${addMinsToHM(t.custom_times[idx-1], dur)}`;
+              const usTimeText = ct ? getUsaTimeFromHM(ct, serverTz, selectedUsTz) : '';
               return (
                   <div className="ap-field" key={idx} style={{marginBottom: 0}}>
                       <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
@@ -787,6 +837,7 @@ function EditTaskForm({ task, onSave, onCancel, connectedPages }) {
                               setT(f => ({...f, custom_times: newT}));
                           }} />
                       </div>
+                      {usTimeText && <span style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '4px', display: 'block' }}>🇺🇸 {usTimeText}</span>}
                   </div>
               )
             })}

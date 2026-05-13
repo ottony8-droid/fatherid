@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, LayoutDashboard, Zap, LogOut, Rocket, TrendingUp, Sun, Moon, Monitor } from 'lucide-react';
+import { Settings, LayoutDashboard, Zap, LogOut, Rocket, TrendingUp, Sun, Moon, Monitor, Shield } from 'lucide-react';
 import Dashboard from './Dashboard';
 import AutoPilot from './AutoPilot';
+import ProxyManager from './ProxyManager';
 
 const API_URL = '/api';
 
@@ -124,6 +125,9 @@ function App() {
            <div className={`nav-item ${activeTopTab === 'dash' ? 'active' : ''}`} onClick={()=>setActiveTopTab('dash')}>
              <LayoutDashboard size={16} color={activeTopTab === 'dash' ? 'var(--blue-accent)' : 'var(--text-muted)'} style={{marginRight:8}} /> Dashboard
            </div>
+           <div className={`nav-item ${activeTopTab === 'proxy' ? 'active' : ''}`} onClick={()=>setActiveTopTab('proxy')}>
+             <Shield size={16} color={activeTopTab === 'proxy' ? '#f59e0b' : 'var(--text-muted)'} style={{marginRight:8}} /> Proxies
+           </div>
         </div>
 
         <div style={{marginTop: 'auto', padding: 24, borderTop: '1px solid var(--border-color)'}}>
@@ -133,7 +137,7 @@ function App() {
              </div>
              
              <div style={{marginTop: 16, color: 'var(--text-dim)', fontSize: '0.8rem', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                AutoPilot v3.0
+                AutoPilot v4.0
                 <LogOut size={14}/>
              </div>
         </div>
@@ -151,6 +155,7 @@ function App() {
            <div className="top-tabs">
               <div className={`top-tab ${activeTopTab === 'autopilot' ? 'active' : ''}`} onClick={()=>setActiveTopTab('autopilot')}><Rocket size={14}/> AutoPilot</div>
               <div className={`top-tab ${activeTopTab === 'dash' ? 'active' : ''}`} onClick={()=>setActiveTopTab('dash')}><LayoutDashboard size={14}/> Dashboard</div>
+              <div className={`top-tab ${activeTopTab === 'proxy' ? 'active' : ''}`} onClick={()=>setActiveTopTab('proxy')}><Shield size={14}/> Proxies</div>
            </div>
 
            {/* THEME SWITCHER */}
@@ -180,11 +185,15 @@ function App() {
            />
         )}
 
+        {activeTopTab === 'proxy' && (
+           <ProxyManager pages={pages} />
+        )}
+
 
         {activeTopTab === 'settings' && (
            <div style={{padding: 48, color: 'var(--text-main)'}}>
               <h2>System Settings</h2>
-              <p style={{color: 'var(--text-muted)', marginTop: 12}}>App Version: 3.0.0 (AutoPilot Reel Blaster by Bittu)</p>
+              <p style={{color: 'var(--text-muted)', marginTop: 12}}>App Version: 4.0.0 (AutoPilot Reel Blaster by Bittu)</p>
               
               <div className="segment-box" style={{marginTop: 32, maxWidth: 600}}>
                  <h3 style={{marginBottom: 16}}>Facebook API Token Settings</h3>

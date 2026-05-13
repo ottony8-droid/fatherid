@@ -93,7 +93,7 @@ export default function AutoPilot() {
 
   // New task form focused on Custom Phases
   const [form, setForm] = useState({
-    name: '', folder_path: '', custom_times: ['10:00', '15:00', '20:00'], gap_minutes: 5
+    name: '', folder_path: '', custom_times: ['10:00', '15:00', '20:00'], gap_minutes: 10
   });
 
   const fetchAll = async () => {
@@ -469,10 +469,10 @@ export default function AutoPilot() {
               <div className="ap-field">
                 <label>Gap Time</label>
                 <div className="digital-input-wrap">
-                  <input type="number" className="digital-number" value={form.gap_minutes} onChange={e => setForm(f => ({ ...f, gap_minutes: e.target.value === '' ? '' : parseInt(e.target.value) }))} min={1} max={60} />
+                  <input type="number" className="digital-number" value={form.gap_minutes} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 10, 10); setForm(f => ({ ...f, gap_minutes: v })); }} min={10} max={120} />
                   <span className="digital-unit">MIN</span>
                 </div>
-                <span className="ap-field-tip">Wait between each page</span>
+                <span className="ap-field-tip" style={{color: 'var(--warning)'}}>Minimum 10 min gap between pages</span>
               </div>
 
               <div className="ap-field span-3">
@@ -743,9 +743,9 @@ function EditTaskForm({ task, onSave, onCancel, connectedPages }) {
             </button>
           </div>
         </div>
-        <div className="ap-field"><label>Gap (min)</label>
+        <div className="ap-field"><label>Gap (min) <span style={{fontSize: '0.65rem', color: 'var(--warning)'}}>min 10</span></label>
           <div className="digital-input-wrap">
-            <input type="number" className="digital-number" value={t.gap_minutes} onChange={e => setT(x => ({ ...x, gap_minutes: e.target.value === '' ? '' : parseInt(e.target.value) }))} />
+            <input type="number" className="digital-number" value={t.gap_minutes} onChange={e => { const v = e.target.value === '' ? '' : Math.max(parseInt(e.target.value) || 10, 10); setT(x => ({ ...x, gap_minutes: v })); }} min={10} max={120} />
           </div>
         </div>
         

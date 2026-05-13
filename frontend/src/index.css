@@ -931,3 +931,38 @@ body[data-theme="light"] select, body[data-theme="light"] input[type="text"], bo
 body[data-theme="light"] .pps-table tr:hover { background: rgba(0,0,0,0.02); }
 body[data-theme="light"] .pps-table td { border-bottom-color: rgba(0,0,0,0.04); }
 
+/* Light theme — additional overrides */
+body[data-theme="light"] .ap-engine-card { background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
+body[data-theme="light"] .ap-section { background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+body[data-theme="light"] .ap-task-item { background: #fafbfc; }
+body[data-theme="light"] .ap-task-item:hover { background: #f3f4f6; }
+body[data-theme="light"] .ap-tag { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); }
+body[data-theme="light"] .ap-top-stat-card { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+body[data-theme="light"] .ap-timeline-box .ap-step { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+body[data-theme="light"] .ap-progress-area { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+body[data-theme="light"] .db-title { background: linear-gradient(135deg, #1f2937 40%, #6366f1); -webkit-background-clip: text; background-clip: text; }
+
+/* Midnight theme — additional overrides */
+body[data-theme="midnight"] .ap-engine-card { background: #151b2b; }
+body[data-theme="midnight"] .ap-section { background: #151b2b; }
+body[data-theme="midnight"] .sidebar { background: #101623; }
+
+/* Smooth transitions for theme switching */
+body, .sidebar, .main-content, .topbar, .ap-section, .ap-engine-card,
+.ap-task-item, .ap-top-stat-card, .digital-input-wrap, .db-section,
+.db-stat-card, .stat-card, .panel-box, .ap-create-box {
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Enhanced countdown animation */
+@keyframes countdownPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Scrollbar styling for all themes */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-darker); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+

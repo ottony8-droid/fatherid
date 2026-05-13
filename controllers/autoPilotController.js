@@ -23,6 +23,7 @@ exports.createTask = async (req, res) => {
       return res.status(400).json({ error: 'Folder path does not exist.' });
     }
 
+    const effectiveGap = Math.max(parseInt(gap_minutes) || 10, 10);
     const timesStr = Array.isArray(custom_times) ? JSON.stringify(custom_times) : '[]';
 
     const result = await runQuery(`
@@ -30,7 +31,7 @@ exports.createTask = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `, [
       name, folder_path,
-      max_rounds ?? 5, gap_minutes ?? 2, rest_minutes ?? 60, timesStr
+      max_rounds ?? 5, effectiveGap, rest_minutes ?? 60, timesStr
     ]);
 
     res.json({ success: true, id: result.id, message: `Task "${name}" created.` });
@@ -65,12 +66,13 @@ exports.updateTask = async (req, res) => {
     const { name, folder_path, max_rounds, gap_minutes, rest_minutes, custom_times } = req.body;
     const { id } = req.params;
 
+    const effectiveGap = Math.max(parseInt(gap_minutes) || 10, 10);
     const timesStr = Array.isArray(custom_times) ? JSON.stringify(custom_times) : '[]';
 
     await runQuery(`
       UPDATE autopilot_tasks SET name=?, folder_path=?, max_rounds=?, gap_minutes=?, rest_minutes=?, custom_times=?
       WHERE id=?
-    `, [name, folder_path, max_rounds, gap_minutes, rest_minutes, timesStr, id]);
+    `, [name, folder_path, max_rounds, effectiveGap, rest_minutes, timesStr, id]);
 
     res.json({ success: true, message: 'Task updated.' });
   } catch (err) {

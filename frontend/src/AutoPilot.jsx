@@ -69,6 +69,12 @@ const getLiveClock = (tz) => {
   } catch(e) { return '--:--:--'; }
 };
 
+const getLiveDate = (tz) => {
+  try {
+    return new Date().toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  } catch(e) { return ''; }
+};
+
 export default function AutoPilot() {
   const [tasks, setTasks] = useState([]);
   const [status, setStatus] = useState({});
@@ -81,15 +87,17 @@ export default function AutoPilot() {
   const [pages, setPages] = useState([]);
   const [gapCountdown, setGapCountdown] = useState(null);
   const [selectedUsTz, setSelectedUsTz] = useState(() => localStorage.getItem('autopilot_us_tz') || 'America/New_York');
-  const [liveClock, setLiveClock] = useState({ server: '', us: '' });
+  const [liveClock, setLiveClock] = useState({ server: '', us: '', serverDate: '', usDate: '' });
 
   // Live clock update
   useEffect(() => {
-    const serverTz = status.serverInfo?.timezone;
+    const serverTz = status.serverInfo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
     const tick = () => {
       setLiveClock({
-        server: serverTz ? getLiveClock(serverTz) : getLiveClock(Intl.DateTimeFormat().resolvedOptions().timeZone),
-        us: getLiveClock(selectedUsTz)
+        server: getLiveClock(serverTz),
+        us: getLiveClock(selectedUsTz),
+        serverDate: getLiveDate(serverTz),
+        usDate: getLiveDate(selectedUsTz)
       });
     };
     tick();
@@ -294,28 +302,38 @@ export default function AutoPilot() {
 
   return (
     <div className="content-wrapper ap-wrapper">
+      {/* ═══ TIMEZONE CLOCK BAR ═══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        {/* US Clock */}
+        <div style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(99,102,241,0.05))', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ fontSize: '2rem' }}>🇺🇸</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <select value={selectedUsTz} onChange={e => handleTzChange(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', outline: 'none', padding: 0 }}>
+                {US_TIMEZONES.map(tz => <option key={tz.value} value={tz.value} style={{ background: 'var(--bg-card)' }}>{tz.label}</option>)}
+              </select>
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1.6rem', fontWeight: 800, color: '#6366f1', letterSpacing: '2px', lineHeight: 1 }}>{liveClock.us}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>{liveClock.usDate}</div>
+          </div>
+        </div>
+        {/* Server Clock */}
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ fontSize: '2rem' }}>{status.serverInfo?.flag || '🖥️'}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>
+              Server {status.serverInfo ? `(${status.serverInfo.location})` : ''}
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1.6rem', fontWeight: 800, color: 'var(--blue-accent)', letterSpacing: '2px', lineHeight: 1 }}>{liveClock.server}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>{liveClock.serverDate} {status.serverInfo?.ip ? `• ${status.serverInfo.ip}` : ''}</div>
+          </div>
+        </div>
+      </div>
+
       <div className="ap-header">
         <div>
           <h1 className="ap-title"><Zap size={24} style={{ color: 'var(--blue-accent)' }} /> <span>VPS</span> AutoPilot 01</h1>
           <p className="ap-subtitle">Fully autonomous daily phase scheduling. Set your custom times and relax.</p>
-          {/* Timezone & Clock Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
-            {status.serverInfo && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '8px' }}>
-                <span style={{ fontSize: '1.1rem' }}>{status.serverInfo.flag}</span>
-                <strong style={{ color: 'var(--text-main)' }}>{status.serverInfo.ip}</strong>
-                <span style={{ opacity: 0.7 }}>({status.serverInfo.location})</span>
-                <span style={{ color: 'var(--blue-accent)', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', marginLeft: 4 }}>{liveClock.server}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', padding: '6px 12px', borderRadius: '8px' }}>
-              <span style={{ fontSize: '1.1rem' }}>🇺🇸</span>
-              <select value={selectedUsTz} onChange={e => handleTzChange(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer', outline: 'none' }}>
-                {US_TIMEZONES.map(tz => <option key={tz.value} value={tz.value} style={{ background: 'var(--bg-card)' }}>{tz.label}</option>)}
-              </select>
-              <span style={{ color: '#6366f1', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem' }}>{liveClock.us}</span>
-            </div>
-          </div>
         </div>
         {!isRunning && (
           <button className="ap-btn-primary" onClick={() => setShowCreate(!showCreate)}>
@@ -551,7 +569,7 @@ export default function AutoPilot() {
                                     setForm(f => ({...f, custom_times: newT}));
                                 }} />
                             </div>
-                            {usTimeText && <span style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '4px', display: 'block' }}>🇺🇸 {usTimeText}</span>}
+                            {usTimeText && <span style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '4px', display: 'block' }}>🇺🇸 US: {usTimeText}</span>}
                         </div>
                     )
                   })}
@@ -837,7 +855,7 @@ function EditTaskForm({ task, onSave, onCancel, connectedPages, serverTz, select
                               setT(f => ({...f, custom_times: newT}));
                           }} />
                       </div>
-                      {usTimeText && <span style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '4px', display: 'block' }}>🇺🇸 {usTimeText}</span>}
+                      {usTimeText && <span style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '4px', display: 'block' }}>🇺🇸 US: {usTimeText}</span>}
                   </div>
               )
             })}

@@ -14,7 +14,7 @@ const fs = require('fs');
 
 exports.createTask = async (req, res) => {
   try {
-    const { name, folder_path, max_rounds, gap_minutes, rest_minutes, custom_times } = req.body;
+    const { name, folder_path, max_rounds, gap_minutes, gap_max, rest_minutes, custom_times } = req.body;
     
     if (!name || !folder_path) {
       return res.status(400).json({ error: 'Task name and folder path are required.' });
@@ -23,15 +23,16 @@ exports.createTask = async (req, res) => {
       return res.status(400).json({ error: 'Folder path does not exist.' });
     }
 
-    const effectiveGap = Math.max(parseInt(gap_minutes) || 10, 10);
+    const effectiveGapMin = Math.max(parseInt(gap_minutes) || 7, 7);
+    const effectiveGapMax = Math.max(parseInt(gap_max) || 15, effectiveGapMin);
     const timesStr = Array.isArray(custom_times) ? JSON.stringify(custom_times) : '[]';
 
     const result = await runQuery(`
-      INSERT INTO autopilot_tasks (name, folder_path, max_rounds, gap_minutes, rest_minutes, custom_times)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO autopilot_tasks (name, folder_path, max_rounds, gap_minutes, gap_max, rest_minutes, custom_times)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       name, folder_path,
-      max_rounds ?? 5, effectiveGap, rest_minutes ?? 60, timesStr
+      max_rounds ?? 5, effectiveGapMin, effectiveGapMax, rest_minutes ?? 60, timesStr
     ]);
 
     res.json({ success: true, id: result.id, message: `Task "${name}" created.` });
@@ -63,16 +64,17 @@ exports.getTasks = async (req, res) => {
 
 exports.updateTask = async (req, res) => {
   try {
-    const { name, folder_path, max_rounds, gap_minutes, rest_minutes, custom_times } = req.body;
+    const { name, folder_path, max_rounds, gap_minutes, gap_max, rest_minutes, custom_times } = req.body;
     const { id } = req.params;
 
-    const effectiveGap = Math.max(parseInt(gap_minutes) || 10, 10);
+    const effectiveGapMin = Math.max(parseInt(gap_minutes) || 7, 7);
+    const effectiveGapMax = Math.max(parseInt(gap_max) || 15, effectiveGapMin);
     const timesStr = Array.isArray(custom_times) ? JSON.stringify(custom_times) : '[]';
 
     await runQuery(`
-      UPDATE autopilot_tasks SET name=?, folder_path=?, max_rounds=?, gap_minutes=?, rest_minutes=?, custom_times=?
+      UPDATE autopilot_tasks SET name=?, folder_path=?, max_rounds=?, gap_minutes=?, gap_max=?, rest_minutes=?, custom_times=?
       WHERE id=?
-    `, [name, folder_path, max_rounds, effectiveGap, rest_minutes, timesStr, id]);
+    `, [name, folder_path, max_rounds, effectiveGapMin, effectiveGapMax, rest_minutes, timesStr, id]);
 
     res.json({ success: true, message: 'Task updated.' });
   } catch (err) {

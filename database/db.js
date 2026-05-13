@@ -19,6 +19,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 
+let dbReadyResolve;
+const dbReady = new Promise(resolve => { dbReadyResolve = resolve; });
+
 function initializeDatabase() {
   db.serialize(() => {
     db.run(`
@@ -184,6 +187,11 @@ function initializeDatabase() {
     db.run("ALTER TABLE pages ADD COLUMN proxy_id INTEGER", (err) => {});
 
     console.log('Database tables verified for AutoPilot Reel Blaster v4.0.');
+
+    // Signal that all tables are ready
+    db.run("SELECT 1", () => {
+      dbReadyResolve();
+    });
   });
 }
 
@@ -216,6 +224,7 @@ function allQuery(sql, params = []) {
 
 module.exports = {
   db,
+  dbReady,
   runQuery,
   getQuery,
   allQuery

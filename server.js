@@ -48,8 +48,12 @@ app.listen(PORT, () => {
   }
   
   // Power Outage / Reboot Auto-Resume Mechanism
+  // Wait for database tables to be fully created before resuming
+  const { dbReady } = require('./database/db');
   const { resumeEngineIfActive } = require('./jobs/autoPilot');
-  resumeEngineIfActive();
+  dbReady.then(() => {
+    resumeEngineIfActive();
+  });
 });
 
 // Graceful shutdown: flush in‑memory queues and close DB

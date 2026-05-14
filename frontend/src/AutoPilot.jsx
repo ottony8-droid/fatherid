@@ -140,6 +140,7 @@ export default function AutoPilot() {
     name: '', folder_path: '', custom_times: ['10:00', '20:00'], gap_minutes: 7, gap_max: 15
   });
 
+  const prevDataRef = useRef({});
   const fetchAll = async () => {
     try {
       const [tasksRes, statusRes, logsRes, statsRes, pagesRes] = await Promise.all([
@@ -149,11 +150,17 @@ export default function AutoPilot() {
         fetch(`/api/autopilot/page-stats`).then(r => r.json()),
         fetch(`/api/pages`).then(r => r.json())
       ]);
-      if (tasksRes.tasks) setTasks(tasksRes.tasks);
-      setStatus(statusRes);
-      if (logsRes.logs) setLogs(logsRes.logs);
-      if (statsRes.stats) setPageStats(statsRes.stats);
-      if (pagesRes.pages) setPages(pagesRes.pages);
+      const tasksStr = JSON.stringify(tasksRes.tasks);
+      const { localTime: _lt, ...statusForCompare } = statusRes;
+      const statusStr = JSON.stringify(statusForCompare);
+      const logsStr = JSON.stringify(logsRes.logs);
+      const statsStr = JSON.stringify(statsRes.stats);
+      const pagesStr = JSON.stringify(pagesRes.pages);
+      if (tasksRes.tasks && tasksStr !== prevDataRef.current.tasks) { setTasks(tasksRes.tasks); prevDataRef.current.tasks = tasksStr; }
+      if (statusStr !== prevDataRef.current.status) { setStatus(statusRes); prevDataRef.current.status = statusStr; }
+      if (logsRes.logs && logsStr !== prevDataRef.current.logs) { setLogs(logsRes.logs); prevDataRef.current.logs = logsStr; }
+      if (statsRes.stats && statsStr !== prevDataRef.current.stats) { setPageStats(statsRes.stats); prevDataRef.current.stats = statsStr; }
+      if (pagesRes.pages && pagesStr !== prevDataRef.current.pages) { setPages(pagesRes.pages); prevDataRef.current.pages = pagesStr; }
     } catch (e) { console.error(e); }
   };
 
